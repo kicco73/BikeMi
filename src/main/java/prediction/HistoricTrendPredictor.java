@@ -16,6 +16,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
+import org.apache.mahout.classifier.sgd.OnlineLogisticRegression;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import utility.BinUtil;
@@ -30,20 +31,76 @@ public class HistoricTrendPredictor extends AbstractPredictor {
     private final int BIN_ID_INDEX_TRANSACTION = 1;
 
     /**
+     * Numero di feature utilizzate per la predizione
+     */
+    private final int FEATURE_SIZE = 3;
+
+    /**
+     * Map che contiene i predittori. Uno per ogni bike station.
+     */
+    private HashMap<Integer, OnlineLogisticRegression> lrMap = null;
+
+    /**
      * Costruttore
      *
      * @param numCategories numero di valori che la variabile di uscita può
      * assumere
      * @param pw finestra di predizione
      */
+    
     public HistoricTrendPredictor(int numCategories, int pw) {
         super(numCategories, pw);
     }
 
+    /**
+     * Trasforma il vettore che contiene la transazione in un vettore che
+     * contiene solamente le informazioni utilizzate per la predizione
+     * (feature).<br>
+     * Il vettore delle transazione ha il seguente formato:<br>
+     * [bike_station_id, bin_id, average, size, outcome_value]<br>
+     * Il vettore delle features ha il seguente formato:<br>
+     * [bin_id, average, size]<br>
+     *
+     * @param transactionVector vettore che contiene la transazione
+     * @return vettore che contiene solamente le feature
+     */
+    private Vector getFeatureVector(Vector transactionVector) {
+        Vector vector = new DenseVector(FEATURE_SIZE);
+        for (int i = 0; i < FEATURE_SIZE; i++) {
+            vector.set(i, transactionVector.get(i + 1));
+        }
+
+        return vector;
+    }
+
+    /**
+     * Classifica il vettore e ritorna il valore della variabile di uscita
+     * (intero tra 0 e {@link AbstractPredictor#getNumategories()}-1).
+     *
+     * @params vettore da classificare. Il vettore deve avere dimensione 5 e
+     * rappresenta la transazione. Esso contiene (in ordine):
+     * <li>bike_station_id</li>
+     * <li>daily_bin_id</li>
+     * <li>available_bike_average</li>
+     * <li>bike_station_size</li>
+     * <li>category_id</li>
+     * Il <i>bike_station_id</i> è utilizzato per recuperare il corretto
+     * predittore.<br>
+     * <li>category_id</li> non è utilizzato.
+     *
+     * @return il valore della variabile di predire o -1 in caso di errore
+     */
     @Override
     public int classify(Vector vector) {
-        // TODO Implement me for the project
-        return 0;
+        // Get the righ online logistic regression
+        OnlineLogisticRegression lr = lrMap.get(new Integer((int) vector.get(0))); // Value in position 0 contains the bike_station_id
+        if (lr == null) {
+            return -1;
+        }
+        // Classify
+        Vector result = lr.classifyFull(getFeatureVector(vector));
+        // Return the index with max value
+        return result.maxValueIndex();
     }
 
     /**
@@ -100,7 +157,7 @@ public class HistoricTrendPredictor extends AbstractPredictor {
         // Holds Features for the test set
         HashMap<Integer, List<Vector>> dataTest = new HashMap<Integer, List<Vector>>();
 
-		////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////
         // 		 Reads data and set the parameters 			  //
         ////////////////////////////////////////////////////////
         Configuration conf = new Configuration();
@@ -156,10 +213,10 @@ public class HistoricTrendPredictor extends AbstractPredictor {
     }
 
     private void train(HashMap<Integer, List<Vector>> dataTraining, int binsPerDay) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     private void evaluate(HashMap<Integer, List<Vector>> dataTest) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 }
