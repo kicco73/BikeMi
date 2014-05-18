@@ -183,7 +183,8 @@ public class LastValuePredictor extends AbstractPredictor{
 	
 
 	@Override
-	public void buildClassifier(Path input, String pattern, int days,int binsPerDay, int numTarget) 
+	public void buildClassifier(Path input, String pattern, int days,
+                        int binsPerDay, int numTarget) 
 			throws IOException {
 
 		input = input.suffix("/part-r-00000");
