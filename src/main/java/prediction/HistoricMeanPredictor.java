@@ -11,13 +11,11 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
-
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.mahout.classifier.ConfusionMatrix;
-import org.apache.mahout.classifier.sgd.L2;
 import org.apache.mahout.classifier.sgd.OnlineLogisticRegression;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
@@ -38,6 +36,11 @@ public class HistoricMeanPredictor extends AbstractPredictor {
      * Numero di feature utilizzate per la predizione
      */
     private final int FEATURE_SIZE = 3;
+
+    /**
+     * Map che contiene i predittori. Uno per ogni bike station.
+     */
+    private HashMap<Integer, OnlineLogisticRegression> lrMap = null;
 
     /**
      * Costruttore
@@ -93,6 +96,11 @@ public class HistoricMeanPredictor extends AbstractPredictor {
      *
      * @param vector vettore da classificare. Il vettore deve avere dimensione 5
      * e rappresenta la transazione. Esso contiene (in ordine):
+     * Classifica il vettore e ritorna il valore della variabile di uscita
+     * (intero tra 0 e {@link AbstractPredictor#getNumategories()}-1).
+     *
+     * @param vector vettore da classificare. Il vettore deve avere dimensione 5 e
+     * rappresenta la transazione. Esso contiene (in ordine):
      * <li>bike_station_id</li>
      * <li>daily_bin_id</li>
      * <li>available_bike_average</li>

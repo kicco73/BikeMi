@@ -11,13 +11,11 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
-
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.mahout.classifier.ConfusionMatrix;
-import org.apache.mahout.classifier.sgd.L2;
 import org.apache.mahout.classifier.sgd.OnlineLogisticRegression;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
@@ -44,6 +42,7 @@ public class HistoricTrendPredictor extends AbstractPredictor {
      * assumere
      * @param pw finestra di predizione
      */
+    
     public HistoricTrendPredictor(int numCategories, int pw) {
         super(numCategories, pw);
     }
@@ -236,7 +235,6 @@ public class HistoricTrendPredictor extends AbstractPredictor {
             }
 
         }
-
     }
 
     /**
