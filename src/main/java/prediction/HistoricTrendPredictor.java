@@ -16,6 +16,9 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
+import org.apache.mahout.classifier.ConfusionMatrix;
+import org.apache.mahout.classifier.sgd.L2;
+import org.apache.mahout.classifier.sgd.OnlineLogisticRegression;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import utility.BinUtil;
@@ -30,6 +33,11 @@ public class HistoricTrendPredictor extends AbstractPredictor {
     private final int BIN_ID_INDEX_TRANSACTION = 1;
 
     /**
+     * Numero di feature utilizzate per la predizione
+     */
+    private final int FEATURE_SIZE = 3;
+
+    /**
      * Costruttore
      *
      * @param numCategories numero di valori che la variabile di uscita può
@@ -40,9 +48,63 @@ public class HistoricTrendPredictor extends AbstractPredictor {
         super(numCategories, pw);
     }
 
+    /**
+     * Trasforma il vettore che contiene la transazione in un vettore che
+     * contiene solamente le informazioni utilizzate per la predizione
+     * (feature).<br>
+     * Il vettore delle transazione ha il seguente formato:<br>
+     * [bike_station_id, bin_id, average, size, outcome_value]<br>
+     * Il vettore delle features ha il seguente formato:<br>
+     * [bin_id, average, size]<br>
+     *
+     * @param transactionVector vettore che contiene la transazione
+     * @return vettore che contiene solamente le feature
+     */
+    private Vector getFeatureVector(Vector transactionVector) {
+        Vector vector = new DenseVector(FEATURE_SIZE);
+        for (int i = 0; i < FEATURE_SIZE; i++) {
+            vector.set(i, transactionVector.get(i + 1));
+        }
+
+        return vector;
+    }
+
+    /**
+     * Il metodo è lo stesso di {@link #getFeatureVector} con la differenza che
+     * trasforma l'id del bin in un bin id giornaliero.
+     *
+     * @param transactionVector vettore che contiene la transazione.
+     * @param binsPerDay numero di bins in un giorno.
+     * @return vettore che contiene solamente le feature
+     */
+    private Vector getFeatureVector(Vector transactionVector, int binsPerDay) {
+        transactionVector.set(BIN_ID_INDEX_TRANSACTION,
+                BinUtil.getBinIdFromUniqueBinIdInAllDays(binsPerDay,
+                        (int) transactionVector.get(BIN_ID_INDEX_TRANSACTION)));
+
+        return getFeatureVector(transactionVector);
+    }
+
+    /**
+     * Classifica il vettore e ritorna il valore della variabile di uscita
+     * (intero tra 0 e {@link AbstractPredictor#getNumategories()}-1).
+     *
+     * @params vettore da classificare. Il vettore deve avere dimensione 5 e
+     * rappresenta la transazione. Esso contiene (in ordine):
+     * <li>bike_station_id</li>
+     * <li>daily_bin_id</li>
+     * <li>available_bike_average</li>
+     * <li>bike_station_size</li>
+     * <li>category_id</li>
+     * Il <i>bike_station_id</i> è utilizzato per recuperare il corretto
+     * predittore.<br>
+     * <li>category_id</li> non è utilizzato.
+     *
+     * @return il valore della variabile di predire o -1 in caso di errore
+     */
     @Override
     public int classify(Vector vector) {
-        // TODO Implement me for the project
+        // TODO FARE QUALCOSA QUI!!
         return 0;
     }
 
@@ -72,7 +134,7 @@ public class HistoricTrendPredictor extends AbstractPredictor {
         Comparator<Vector> comparator = new Comparator<Vector>() {
             @Override
             public int compare(Vector o1, Vector o2) {
-                return new Double(o1.get(BIN_ID_INDEX_TRANSACTION)).compareTo(new Double(o2.get(BIN_ID_INDEX_TRANSACTION)));
+                return new Double(o1.get(BIN_ID_INDEX_TRANSACTION)).compareTo(o2.get(BIN_ID_INDEX_TRANSACTION));
             }
 
         };
@@ -100,7 +162,7 @@ public class HistoricTrendPredictor extends AbstractPredictor {
         // Holds Features for the test set
         HashMap<Integer, List<Vector>> dataTest = new HashMap<Integer, List<Vector>>();
 
-		////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////
         // 		 Reads data and set the parameters 			  //
         ////////////////////////////////////////////////////////
         Configuration conf = new Configuration();
@@ -156,10 +218,98 @@ public class HistoricTrendPredictor extends AbstractPredictor {
     }
 
     private void train(HashMap<Integer, List<Vector>> dataTraining, int binsPerDay) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        // For each bike station
+        for (Map.Entry<Integer, List<Vector>> entry : dataTraining.entrySet()) {
+            List<Vector> currentVectorId = entry.getValue();
+
+            // For each transaction
+            for (int k = 0; k < currentVectorId.size() - pw; k++) {
+                Vector vectorK = currentVectorId.get(k); // get the vector k
+                // Get the right vector k+pw
+                Vector vectorKPw = getVectorKPw(k, pw, (int) vectorK.get(BIN_ID_INDEX_TRANSACTION), currentVectorId);
+                // if null the vector k+pw not exist
+                if (vectorKPw == null) {
+                    continue;
+                }
+                // Train the model
+                // TODO FARE QUALCOSA QUI!
+            }
+
+        }
+
     }
 
-    private void evaluate(HashMap<Integer, List<Vector>> dataTest) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    /**
+     * Lista di simboli utilizzati per la predizione con cui settare la matrice
+     * di confusione. I simboli utilizzati sono degli interi da 0 a NUM_TARGET
+     * -1
+     *
+     * @return lista di simboli utilizzati per la predizione.
+     */
+    private List<String> getSymbols() {
+        List<String> symbols = new ArrayList<String>();
+        for (int i = 0; i < numCategories; i++) {
+            symbols.add("" + i);
+        }
+
+        return symbols;
     }
+
+    /**
+     * Recupera il vettore delle transazioni traslato di PW. Per controllare che
+     * sia corretto la differenza tra l'identificatore del bin del vettore al
+     * tempo t0,
+     * <i>vettore k</i> e l'identificatore del bin del vettore al tempo t0+pw,
+     * <i>vettore k+pw</i> deve essere pari a pw.
+     *
+     * @param k l'indice del <i>vettore k</i>, ossia il vettore al tempo t0,
+     * all'interno della lista <code>currentVector</code>.
+     * @param pw finestra di predizione per recuperare il <i>vettore k+pw</i>,
+     * ossia il vettore tempo t0+pw
+     * @param binId id del bin dele vettore k
+     * @param currentVector lista in cui cercare il <i>vettore k+pw</i>
+     * @return il <i>vettore k+pw</i> o null se non trovato
+     */
+    private Vector getVectorKPw(int k, int pw, int binId, List<Vector> currentVector) {
+        Vector vectorKPw = null;
+        for (int i = k + pw; i > k; i--) {
+            vectorKPw = currentVector.get(i);
+            if (vectorKPw.get(BIN_ID_INDEX_TRANSACTION) == binId + pw) {
+                return vectorKPw;
+            }
+
+        }
+
+        return null;
+    }
+
+    /**
+     * Valuta le prestazioni del modello appena allenato
+     *
+     * @param dataTest map che contiene tutte le transazioni da classificare per
+     * ogni bike station
+     */
+    private void evaluate(HashMap<Integer, List<Vector>> dataTest) {
+        List<String> symbols = getSymbols();
+        cm = new ConfusionMatrix(symbols, "unknown"); // create the confusion matrix
+
+        // For each bike station
+        for (Map.Entry<Integer, List<Vector>> entry : dataTest.entrySet()) {
+            List<Vector> currentVectorId = entry.getValue(); // get the transactions to classify
+            for (int k = 0; k < currentVectorId.size() - pw; k++) { // for each transaction
+                Vector vectorK = currentVectorId.get(k); // get the vector of the transaction
+                int classifiedLabel = classify(vectorK); // cassify the transaction
+                if (classifiedLabel == -1) // if -1 something classification is not ok
+                {
+                    continue;
+                }
+
+                // Get the right vector k + pw
+                Vector vectorKPw = getVectorKPw(k, pw, (int) vectorK.get(BIN_ID_INDEX_TRANSACTION), currentVectorId);
+                int correctLabel = (int) vectorKPw.get(vectorKPw.size() - 1); // get the right value of the outcome
+                cm.addInstance("" + correctLabel, "" + classifiedLabel); // update confusion matrix
+            }
+        }
+    }
+
 }
