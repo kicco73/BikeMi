@@ -22,7 +22,6 @@ import utility.BinUtil;
 
 public class HistoricMeanPredictor extends AbstractPredictor {
 
-    protected static String NAME = "Historic Mean Value Predictor";
     /**
      * Indice del vettore delle transazioni in cui è memorizzato il binId
      */
@@ -41,7 +40,12 @@ public class HistoricMeanPredictor extends AbstractPredictor {
     public HistoricMeanPredictor(int numCategories, int pw) {
         super(numCategories, pw);
     }
-
+ 
+    protected String getName() {
+        return "Historic Mean Value Predictor";
+    }
+    
+    
     /**
      * Classifica il vettore e ritorna il valore della variabile di uscita
      * (intero tra 0 e {@link AbstractPredictor#getNumategories()}-1).
@@ -176,7 +180,7 @@ public class HistoricMeanPredictor extends AbstractPredictor {
 
     @Override
     public String printInfo() {
-        StringBuilder sb = new StringBuilder(NAME + ":\n");
+        StringBuilder sb = new StringBuilder(getName() + ":\n");
         sb.append(super.printInfo());
         return sb.toString();
     }

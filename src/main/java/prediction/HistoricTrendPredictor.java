@@ -1,28 +1,8 @@
 package prediction;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.regex.Pattern;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.SequenceFile;
-import org.apache.hadoop.io.Text;
-import org.apache.mahout.classifier.ConfusionMatrix;
-import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
-import utility.BinUtil;
 
 public class HistoricTrendPredictor extends HistoricMeanPredictor {
-
-    private static final String NAME = "Historic Trend Value Predictor";
 
     /**
      * Costruttore
@@ -35,6 +15,11 @@ public class HistoricTrendPredictor extends HistoricMeanPredictor {
         super(numCategories, pw);
     }
 
+    @Override
+    protected String getName() {
+        return "Historic Trend Value Predictor";
+    }
+    
     /**
      * Classifica il vettore e ritorna il valore della variabile di uscita
      * (intero tra 0 e {@link AbstractPredictor#getNumategories()}-1).
