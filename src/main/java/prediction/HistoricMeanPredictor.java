@@ -16,31 +16,20 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.mahout.classifier.ConfusionMatrix;
-import org.apache.mahout.classifier.sgd.OnlineLogisticRegression;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import utility.BinUtil;
 
 public class HistoricMeanPredictor extends AbstractPredictor {
 
-    private static final String NAME = "Historic Mean Value Regressor";
+    protected static String NAME = "Historic Mean Value Predictor";
     /**
      * Indice del vettore delle transazioni in cui è memorizzato il binId
      */
 
-    private final int BIN_ID_INDEX_TRANSACTION = 1;
+    protected final int BIN_ID_INDEX_TRANSACTION = 1;
 
-    private final Map<Integer, Double[]> stationHistoricMean = new HashMap<Integer, Double[]>();
-    
-    /**
-     * Numero di feature utilizzate per la predizione
-     */
-    private final int FEATURE_SIZE = 3;
-
-    /**
-     * Map che contiene i predittori. Uno per ogni bike station.
-     */
-    private HashMap<Integer, OnlineLogisticRegression> lrMap = null;
+    protected final Map<Integer, double[]> stationHistoricMean = new HashMap<Integer, double[]>();
 
     /**
      * Costruttore
@@ -54,53 +43,14 @@ public class HistoricMeanPredictor extends AbstractPredictor {
     }
 
     /**
-     * Trasforma il vettore che contiene la transazione in un vettore che
-     * contiene solamente le informazioni utilizzate per la predizione
-     * (feature).<br>
-     * Il vettore delle transazione ha il seguente formato:<br>
-     * [bike_station_id, bin_id, average, size, outcome_value]<br>
-     * Il vettore delle features ha il seguente formato:<br>
-     * [bin_id, average, size]<br>
-     *
-     * @param transactionVector vettore che contiene la transazione
-     * @return vettore che contiene solamente le feature
-     */
-    private Vector getFeatureVector(Vector transactionVector) {
-        Vector vector = new DenseVector(FEATURE_SIZE);
-        for (int i = 0; i < FEATURE_SIZE; i++) {
-            vector.set(i, transactionVector.get(i + 1));
-        }
-
-        return vector;
-    }
-
-    /**
-     * Il metodo è lo stesso di {@link #getFeatureVector} con la differenza che
-     * trasforma l'id del bin in un bin id giornaliero.
-     *
-     * @param transactionVector vettore che contiene la transazione.
-     * @param binsPerDay numero di bins in un giorno.
-     * @return vettore che contiene solamente le feature
-     */
-    private Vector getFeatureVector(Vector transactionVector, int binsPerDay) {
-        transactionVector.set(BIN_ID_INDEX_TRANSACTION,
-                BinUtil.getBinIdFromUniqueBinIdInAllDays(binsPerDay,
-                        (int) transactionVector.get(BIN_ID_INDEX_TRANSACTION)));
-
-        return getFeatureVector(transactionVector);
-    }
-
-    /**
      * Classifica il vettore e ritorna il valore della variabile di uscita
      * (intero tra 0 e {@link AbstractPredictor#getNumategories()}-1).
      *
      * @param vector vettore da classificare. Il vettore deve avere dimensione 5
-     * e rappresenta la transazione. Esso contiene (in ordine):
-     * Classifica il vettore e ritorna il valore della variabile di uscita
-     * (intero tra 0 e {@link AbstractPredictor#getNumategories()}-1).
-     *
-     * @param vector vettore da classificare. Il vettore deve avere dimensione 5 e
-     * rappresenta la transazione. Esso contiene (in ordine):
+     * e rappresenta la transazione. Esso contiene (in ordine): Classifica il
+     * vettore e ritorna il valore della variabile di uscita (intero tra 0 e
+     * {@link AbstractPredictor#getNumategories()}-1). Il vettore deve avere
+     * dimensione 5 e rappresenta la transazione. Esso contiene (in ordine):
      * <li>bike_station_id</li>
      * <li>daily_bin_id</li>
      * <li>available_bike_average</li>
@@ -112,11 +62,13 @@ public class HistoricMeanPredictor extends AbstractPredictor {
      *
      * @return il valore della variabile di predire o -1 in caso di errore
      */
-    @Override
+   @Override
     public int classify(Vector vector) {
-        int stationId = (int)vector.get(0);
-        int binId = (int)vector.get(1);
-        return (int)Math.round(stationHistoricMean.get(stationId)[binId]);
+        int stationId = (int) vector.get(0);
+        int t0 = (int) vector.get(BIN_ID_INDEX_TRANSACTION);
+        double historicMean[] = stationHistoricMean.get(stationId);
+        double BTBt0pw = Math.round(historicMean[(t0+pw) % historicMean.length]);
+        return (int) BTBt0pw;
     }
 
     /**
@@ -173,8 +125,8 @@ public class HistoricMeanPredictor extends AbstractPredictor {
         // Holds Features for the test set
         HashMap<Integer, List<Vector>> dataTest = new HashMap<Integer, List<Vector>>();
 
-        ////////////////////////////////////////////////////////
-        // 		 Reads data and set the parameters 			  //
+	////////////////////////////////////////////////////////
+        // 		 Reads data and set the parameters    //
         ////////////////////////////////////////////////////////
         Configuration conf = new Configuration();
         // Recupero il filesystem utilizzato
@@ -219,6 +171,7 @@ public class HistoricMeanPredictor extends AbstractPredictor {
 
         sort(dataTest); // sort the test set
         evaluate(dataTest); // test the model
+
     }
 
     @Override
@@ -239,21 +192,21 @@ public class HistoricMeanPredictor extends AbstractPredictor {
     private void train(HashMap<Integer, List<Vector>> dataTraining, int binsPerDay) {
         // For each bike station
         for (Map.Entry<Integer, List<Vector>> entry : dataTraining.entrySet()) {
-            Double historicMean[] = new Double[binsPerDay*14];
+            double sum[] = new double[binsPerDay];
+            int n[] = new int[binsPerDay];
             List<Vector> currentVectorId = entry.getValue();
-            // For each transaction
-            int lastSum = 0;
-            for (int k = 0; k < currentVectorId.size(); k++) {
-                Vector vectorK = currentVectorId.get(k); // get the vector k
+            for (Vector vectorK : currentVectorId) {
                 // get class label
-                int classLabel = (int) vectorK.get(vectorK.size()-1); // get the last index (the class label)        
+                int classLabel = (int) vectorK.get(vectorK.size() - 1); // get the last index (the class label)
                 // Train the model
-                lastSum += classLabel;
-                historicMean[k] = lastSum*1.0/(k+1);
+                int dailyBin = (int) vectorK.get(BIN_ID_INDEX_TRANSACTION) % binsPerDay; 
+                sum[dailyBin] += classLabel;
+                n[dailyBin]++;
             }
-
+            for(int k = 0; k < binsPerDay; k++)
+                sum[k] /= n[k];
             // Put in the map the trained model
-            stationHistoricMean.put(entry.getKey(), historicMean);
+            stationHistoricMean.put(entry.getKey(), sum);
 
         }
 
@@ -297,7 +250,6 @@ public class HistoricMeanPredictor extends AbstractPredictor {
             if (vectorKPw.get(BIN_ID_INDEX_TRANSACTION) == binId + pw) {
                 return vectorKPw;
             }
-
         }
 
         return null;
@@ -318,7 +270,7 @@ public class HistoricMeanPredictor extends AbstractPredictor {
             List<Vector> currentVectorId = entry.getValue(); // get the transactions to classify
             for (int k = 0; k < currentVectorId.size() - pw; k++) { // for each transaction
                 Vector vectorK = currentVectorId.get(k); // get the vector of the transaction
-                int classifiedLabel = classify(vectorK); // cassify the transaction
+                int classifiedLabel = classify(vectorK); // classify the transaction
                 if (classifiedLabel == -1) // if -1 something classification is not ok
                 {
                     continue;

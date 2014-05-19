@@ -67,7 +67,7 @@ public abstract class AbstractPredictor implements Predictor{
 		StringBuilder sb = new StringBuilder();
 		if (cm != null){
 			sb.append(cm.toString());
-			sb.append("Accurancy: " + cm.getAccuracy());
+			sb.append("Accuracy: " + cm.getAccuracy());
 		}
 		else
 			sb.append("Cannot print the confusion matrix info\n");
