@@ -36,7 +36,6 @@ public class HistoricTrendPredictor extends HistoricMeanPredictor {
      * <li>category_id</li>
      * Il <i>bike_station_id</i> è utilizzato per recuperare il corretto
      * predittore.<br>
-     * <li>category_id</li> non è utilizzato.
      *
      * @return il valore della variabile di predire o -1 in caso di errore
      */
